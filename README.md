@@ -2,153 +2,50 @@
 
 ![Latest release](https://img.shields.io/github/v/release/solodynamo/Ration)
 
-A tiny native macOS menu-bar app that shows how hard you're leaning on Claude
-Code, without leaving your desktop or running a terminal command.
+A tiny native macOS menu-bar app that shows how hard you're leaning on
+Claude Code — without leaving your desktop or running a terminal command.
+
+<p align="center">
+  <img src="docs/screenshots/popover.png" width="45%" alt="Ration's menu bar popover showing usage, top projects, and a weekly trend" />
+  <img src="docs/screenshots/recap-card.png" width="45%" alt="Ration's shareable weekly recap card" />
+</p>
+
+## Install
 
 ```bash
 brew install solodynamo/ration/ration
 ```
 
-That's the easiest path — Homebrew also gets you `brew upgrade ration` for
-free, and the cask strips the Gatekeeper quarantine flag automatically so
-there's no "unidentified developer" prompt to click through.
+Or [download the .dmg](https://github.com/solodynamo/Ration/releases/latest/download/Ration.dmg)
+directly — drag Ration into Applications, then **right-click → Open** the
+first time (it's ad-hoc signed, not notarized, so Gatekeeper needs that
+one-time override; Homebrew does this for you automatically).
 
-Prefer not to use Homebrew? **[⬇ Download Ration for Mac](https://github.com/solodynamo/Ration/releases/latest/download/Ration.dmg)**
-— a universal binary that works on Apple Silicon and Intel, and a link that
-always points at the newest release. Open the `.dmg`, drag Ration into
-Applications, then **right-click → Open** the first time (it's ad-hoc
-signed rather than notarized — see [Signing caveat](#ci--releases) below —
-so Gatekeeper needs that one-time override without Homebrew's automatic fix).
+## What it does
 
-This is an original build — architecture and every line of Swift were
-written from scratch for this project. No code was copied from any existing
-usage-monitor app.
+- A ring in the menu bar tracks usage against a budget, auto-calibrated
+  from your own history — or turn budgeting off entirely
+- Breaks usage down by project, and by branch if you work across worktrees
+- A 7-day trend, plus a shareable recap card (streak, busiest day, an
+  API-equivalent $ estimate)
+- **100% local.** Reads Claude Code's own session logs off disk. No
+  accounts, no network calls, nothing leaves your machine.
 
-## Why it looks the way it does
-
-- **Menu bar item + native SwiftUI window (`MenuBarExtra`), not a custom
-  edge-hover panel.** Apple already ships the idiom this kind of tool wants
-  — click the icon, get a small floating window, click away to dismiss.
-  Reimplementing that with a custom screen-edge overlay would add real
-  complexity for a worse, less "at home on macOS" result.
-- **No login, no network calls.** Claude Code already writes a full
-  token-usage breakdown into its own local session transcripts
-  (`~/.claude/projects/**/*.jsonl`) on every turn. Ration just reads those.
-  That means zero auth flow, nothing that can leak a token, and nothing that
-  depends on an undocumented vendor API staying stable.
-
-## Onboarding
-
-Zero setup. On first launch Ration scans your existing local history, finds
-your busiest 5-hour stretch over the last 14 days, pads it by 20%, and uses
-that as your starting budget — nothing to type or paste in. A dismissible
-banner in the popover says so the first time. Change it anytime from
-Settings with a one-tap picker (no text field); doing so takes over
-permanently and Ration stops recalibrating it.
-
-## Honest scope of what it shows
-
-- **Ring = usage against a budget**, not Anthropic's actual plan ceiling.
-  That real number isn't published anywhere Ration (or anything else
-  running locally) can read. The ring is a pacing target, auto-calibrated
-  from your own history (see Onboarding) and adjustable in Settings.
-- **"This 5h window"** mirrors the shape of Claude's actual rate-limit
-  windows, but the *contents* are only what Ration can see in your local
-  logs — reliable for solo usage, not a source of truth for team billing.
-- **Burn rate** is tokens/minute over the trailing 15 minutes, used to
-  estimate "time left at current pace" against your budget.
-- **Top projects** breaks down the current window by working directory, so
-  you can see what's actually eating your budget.
-
-## Provider support
-
-Only Claude Code today, on purpose — its local transcripts are structured,
-undocumented-API-free, and low risk to depend on. Codex and Cursor were
-investigated but don't expose comparable local usage data without either
-reverse-engineering a private endpoint or parsing opaque encrypted local
-storage — both were out of scope for a first pass.
-
-Adding a provider means writing one type that conforms to `UsageProvider`
-(see `Sources/Ration/Providers/`) — the aggregation, ring, burn-rate math,
-and UI are all provider-agnostic already.
-
-## Build & run
-
-Requires Xcode 16 / Swift 6 toolchain (already on this machine) and macOS 13+.
+## Build from source
 
 ```bash
-cd Ration
-swift build            # or: swift run
-./.build/debug/Ration &
+swift build && swift test
 ```
 
-It installs no Dock icon — look for the ring in the menu bar. Quit from the
-"Quit Ration" item inside the popover.
-
-This is a Swift Package executable, not a code-signed `.app` bundle yet, so
-"Launch at login" may silently fail to register (macOS is stricter about
-that for unsigned binaries) — packaging into a proper signed `.app` is the
-natural next step before daily-driving this.
-
-## Testing & packaging
+Requires macOS 13+ and Xcode 16 / Swift 6.
 
 ```bash
-swift test                    # unit tests (aggregation, calibration, log parsing)
-./Scripts/build_app.sh        # release build -> dist/Ration.app (ad-hoc signed)
-./Scripts/smoke_test.sh       # launches the .app, checks it stays up + is Dock-less
-./Scripts/make_dmg.sh         # dist/Ration.app -> dist/Ration.dmg
+./Scripts/build_app.sh   # -> dist/Ration.app
+./Scripts/make_dmg.sh    # -> dist/Ration.dmg
 ```
 
-## CI / releases
+## Contributing
 
-- `.github/workflows/ci.yml` runs on every push/PR to `main`: build, unit
-  tests, then a smoke-test launch of the packaged `.app`.
-- `.github/workflows/release.yml` runs on any `vX.Y.Z` tag push: re-runs
-  tests, builds a universal (arm64 + x86_64) `Ration.app`, wraps it in a
-  `.dmg` named exactly `Ration.dmg`, and publishes it as a GitHub Release —
-  the fixed filename is what makes the `/releases/latest/download/Ration.dmg`
-  link in the Download section above permanent across every future version.
-- Both run on GitHub-hosted `macos-15` runners, which are free for public
-  repositories (no per-minute billing, unlike private repos) — this
-  pipeline costs nothing as long as the repo stays public.
-- **Signing caveat:** the `.dmg` is only ad-hoc signed. That's enough to
-  launch locally but not enough to skip Gatekeeper's "unidentified
-  developer" prompt on someone else's Mac (right-click > Open works around
-  it). Real signing + notarization needs a paid Apple Developer Program
-  membership ($99/yr) — not part of this pipeline, and a separate call to
-  make later if this needs to feel fully "installed from the App Store"
-  smooth for outside users.
-
-## Homebrew tap
-
-The cask lives in [solodynamo/homebrew-ration](https://github.com/solodynamo/homebrew-ration)
-(a separate repo — Homebrew requires tap repos to be named `homebrew-*`).
-`release.yml`'s last step bumps that repo's `Casks/ration.rb` to the new
-version/sha256 on every tagged release, but only once a `HOMEBREW_TAP_TOKEN`
-secret exists on this repo (a fine-grained PAT scoped to just that tap,
-Contents: Read and write) — until then it silently no-ops and the cask
-needs a manual one-line edit after a release.
-
-## Layout
-
-```
-Sources/Ration/
-  RationApp.swift          entry point (MenuBarExtra)
-  AppDelegate.swift         hides the Dock icon
-  AppState.swift             refresh loop, glues everything together
-  Models/                    UsageSample, UsageSnapshot
-  Providers/                 UsageProvider protocol + ClaudeCodeLogProvider
-  Services/                  aggregation, budget persistence + calibration, login item
-  Views/                     RingView, popover, settings, project rows
-Tests/RationTests/          unit tests for the above
-Scripts/                    build_app.sh, make_dmg.sh, smoke_test.sh
-.github/workflows/          ci.yml (push/PR), release.yml (tag push)
-```
-
-## Roadmap ideas (not built)
-
-- Real code signing + notarization (needs a paid Apple Developer account).
-- A proper app icon.
-- Second real provider once a safe local data source turns up.
-- Historical view (today vs. yesterday, weekly trend).
-- Optional `ration status --json` companion for scripting/status-bar tools.
+Adding a provider beyond Claude Code means writing one type conforming to
+`UsageProvider` (see `Sources/Ration/Providers/`) — aggregation, the ring,
+and the rest of the UI are already provider-agnostic. PRs welcome.
