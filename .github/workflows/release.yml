@@ -59,6 +59,7 @@ jobs:
       # one can't write to a different repo, and a broader personal token
       # has no business sitting in CI when a scoped one will do.
       - name: Bump Homebrew cask
+        continue-on-error: true # best-effort: never fail a published release over tap automation
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
