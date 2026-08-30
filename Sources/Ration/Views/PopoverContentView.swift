@@ -4,18 +4,14 @@ import AppKit
 struct PopoverContentView: View {
     @ObservedObject var appState: AppState
     @State private var showingSettings = false
+    @State private var showingRecap = false
 
     var body: some View {
         Group {
             if showingSettings {
-                SettingsView(budgetStore: appState.budgetStore)
-                    .overlay(alignment: .topLeading) {
-                        Button { showingSettings = false } label: {
-                            Image(systemName: "chevron.left")
-                        }
-                        .buttonStyle(.plain)
-                        .padding(16)
-                    }
+                SettingsView(budgetStore: appState.budgetStore, onDone: { showingSettings = false })
+            } else if showingRecap {
+                RecapPreviewView(snapshot: appState.snapshot, onDone: { showingRecap = false })
             } else if !appState.providerAvailable {
                 emptyState
             } else {
@@ -33,6 +29,11 @@ struct PopoverContentView: View {
                 Text(snapshot.provider.rawValue)
                     .font(.system(size: 13, weight: .semibold))
                 Spacer()
+                Button { showingRecap = true } label: {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
                 Button { showingSettings = true } label: {
                     Image(systemName: "gearshape")
                 }
@@ -50,13 +51,24 @@ struct PopoverContentView: View {
                 ZStack {
                     RingView(fraction: snapshot.windowFraction, lineWidth: 7)
                         .frame(width: 60, height: 60)
-                    Text("\(Int(snapshot.windowFraction * 100))%")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    if snapshot.windowBudget > 0 {
+                        Text("\(Int(snapshot.windowFraction * 100))%")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    } else {
+                        Image(systemName: "infinity")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(TokenFormatter.short(snapshot.windowTokens)) / \(TokenFormatter.short(snapshot.windowBudget))")
-                        .font(.system(size: 12, weight: .medium))
+                    if snapshot.windowBudget > 0 {
+                        Text("\(TokenFormatter.short(snapshot.windowTokens)) / \(TokenFormatter.short(snapshot.windowBudget))")
+                            .font(.system(size: 12, weight: .medium))
+                    } else {
+                        Text("\(TokenFormatter.short(snapshot.windowTokens)) — no budget set")
+                            .font(.system(size: 12, weight: .medium))
+                    }
                     Text("this 5h window")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
@@ -97,6 +109,11 @@ struct PopoverContentView: View {
                         ProjectRowView(project: project, maxTokens: snapshot.topProjects.first?.tokens ?? 1)
                     }
                 }
+            }
+
+            if snapshot.last7Days.contains(where: { $0.tokens > 0 }) {
+                Divider()
+                WeekTrendView(days: snapshot.last7Days)
             }
 
             Divider()

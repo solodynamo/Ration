@@ -16,8 +16,10 @@ struct RingView: View {
 
     var body: some View {
         ZStack {
+            // .primary (not .secondary) so the track reads clearly against
+            // the menu bar even before there's any usage data to draw an arc.
             Circle()
-                .stroke(Color.secondary.opacity(0.2), lineWidth: lineWidth)
+                .stroke(Color.primary.opacity(0.35), lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: max(fraction, 0.001))
                 .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))

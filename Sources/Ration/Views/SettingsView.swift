@@ -3,7 +3,11 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var budgetStore: BudgetStore
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
-    @Environment(\.dismiss) private var dismiss
+    /// SettingsView is swapped in via a plain `if` in PopoverContentView,
+    /// not a `.sheet`/NavigationStack, so `@Environment(\.dismiss)` has no
+    /// presentation to dismiss and silently does nothing. This closure is
+    /// the only thing that actually closes the screen.
+    let onDone: () -> Void
 
     private let budgetOptionsM: [Double] = [0.5, 1, 2, 3, 5, 8]
 
@@ -15,7 +19,10 @@ struct SettingsView: View {
     }
 
     private var footnote: String {
-        budgetStore.hasCustomized
+        if budgetStore.windowBudget == 0 {
+            return "Ration will just show your usage — no ring, no warnings, no pacing target."
+        }
+        return budgetStore.hasCustomized
             ? "This is a personal pacing target, not Anthropic's actual plan limit — that number isn't published anywhere Ration can read."
             : "Auto-set from your busiest recent 5-hour stretch. Pick a value here anytime to take over — it won't be recalculated after that."
     }
@@ -30,6 +37,7 @@ struct SettingsView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                 Picker("", selection: budgetBinding) {
+                    Text("No budget").tag(0)
                     ForEach(budgetOptionsM, id: \.self) { millions in
                         Text("\(millions.formatted()) M tokens")
                             .tag(Int(millions * 1_000_000))
@@ -48,7 +56,7 @@ struct SettingsView: View {
                     LaunchAtLogin.set(newValue)
                 }
 
-            Button("Done") { dismiss() }
+            Button("Done") { onDone() }
                 .frame(maxWidth: .infinity)
         }
         .padding(16)

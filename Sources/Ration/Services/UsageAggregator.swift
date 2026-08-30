@@ -33,14 +33,44 @@ enum UsageAggregator {
         let elapsedMinutes = max(now.timeIntervalSince(burnSamples.first?.timestamp ?? now) / 60, 1.0 / 60)
         let tokensPerMinute = burnSamples.isEmpty ? 0 : Double(burnTokens) / elapsedMinutes
 
-        var perProject: [String: Int] = [:]
+        // Branch, not just project — a repo worked on across two branches at
+        // once (worktrees, a parallel experiment) shows which one actually
+        // burned the budget instead of lumping them into one number.
+        var perProjectBranch: [String: [String: Int]] = [:]
         for sample in windowSamples {
-            perProject[sample.project, default: 0] += sample.totalTokens
+            let branch = sample.gitBranch ?? "unknown branch"
+            perProjectBranch[sample.project, default: [:]][branch, default: 0] += sample.totalTokens
         }
-        let topProjects = perProject
-            .map { ProjectShare(name: $0.key, tokens: $0.value) }
+        let topProjects = perProjectBranch
+            .map { projectName, branchTokens -> ProjectShare in
+                let branches = branchTokens
+                    .map { BranchShare(name: $0.key, tokens: $0.value) }
+                    .sorted { $0.tokens > $1.tokens }
+                return ProjectShare(
+                    name: projectName,
+                    tokens: branchTokens.values.reduce(0, +),
+                    branches: branches
+                )
+            }
             .sorted { $0.tokens > $1.tokens }
             .prefix(5)
+
+        let last7Days = (0..<7).compactMap { daysAgo -> DayUsage? in
+            guard let start = calendar.date(byAdding: .day, value: -daysAgo, to: dayStart),
+                  let end = calendar.date(byAdding: .day, value: 1, to: start)
+            else { return nil }
+            let tokens = samples
+                .filter { $0.timestamp >= start && $0.timestamp < end }
+                .reduce(0) { $0 + $1.totalTokens }
+            return DayUsage(day: start, tokens: tokens)
+        }.reversed()
+
+        let weekStart = calendar.date(byAdding: .day, value: -6, to: dayStart) ?? dayStart
+        var weekCostUSD: Double?
+        for sample in samples where sample.timestamp >= weekStart {
+            guard let cost = ModelPricing.estimatedCostUSD(for: sample) else { continue }
+            weekCostUSD = (weekCostUSD ?? 0) + cost
+        }
 
         return UsageSnapshot(
             provider: provider,
@@ -50,6 +80,8 @@ enum UsageAggregator {
             todayTokens: todayTokens,
             tokensPerMinute: tokensPerMinute,
             topProjects: Array(topProjects),
+            last7Days: Array(last7Days),
+            weekCostUSD: weekCostUSD,
             lastUpdated: now
         )
     }

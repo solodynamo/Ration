@@ -8,6 +8,7 @@ final class BudgetCalibratorTests: XCTestCase {
             provider: .claudeCode,
             timestamp: now.addingTimeInterval(-minutesAgo * 60),
             project: "repo",
+            gitBranch: nil,
             sessionId: "s1",
             inputTokens: tokens,
             outputTokens: 0,

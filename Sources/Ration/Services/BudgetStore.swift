@@ -29,8 +29,16 @@ final class BudgetStore: ObservableObject {
     }
 
     init() {
-        let stored = UserDefaults.standard.integer(forKey: Self.budgetKey)
-        self.windowBudget = stored > 0 ? stored : Self.fallbackDefault
+        // `0` is a valid, deliberate choice (no budget) once the user has
+        // set one, so we can't fall back on `stored > 0`, or a persisted
+        // "no budget" would silently flip back to the default every
+        // relaunch. `object(forKey:)` distinguishes "never set" from "set
+        // to zero"; only the former should get the fallback.
+        if let stored = UserDefaults.standard.object(forKey: Self.budgetKey) as? Int {
+            self.windowBudget = stored
+        } else {
+            self.windowBudget = Self.fallbackDefault
+        }
         self.isCalibrated = UserDefaults.standard.bool(forKey: Self.calibratedKey)
         self.hasCustomized = UserDefaults.standard.bool(forKey: Self.customizedKey)
         self.calibrationBannerDismissed = UserDefaults.standard.bool(forKey: Self.bannerDismissedKey)

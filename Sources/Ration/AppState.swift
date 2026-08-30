@@ -20,8 +20,14 @@ final class AppState: ObservableObject {
         self.providerAvailable = provider.isAvailable()
         self.snapshot = .empty(provider.kind, budget: budgetStore.windowBudget)
 
+        // `@Published` publishes on `willSet` — the emitted value is the
+        // new one, but `budgetStore.windowBudget` itself hasn't been
+        // written yet at the moment this closure runs. Re-reading it here
+        // (as `refresh()` normally does) would rebuild the snapshot with
+        // the *old* budget, and the UI wouldn't catch up until the next
+        // timer tick. Use the value the publisher handed us instead.
         budgetStore.$windowBudget
-            .sink { [weak self] _ in self?.refresh() }
+            .sink { [weak self] newBudget in self?.refresh(budgetOverride: newBudget) }
             .store(in: &cancellables)
     }
 
@@ -46,11 +52,14 @@ final class AppState: ObservableObject {
         budgetStore.applyCalibratedDefault(suggestion)
     }
 
-    func refresh() {
+    func refresh(budgetOverride: Int? = nil) {
         providerAvailable = provider.isAvailable()
         guard providerAvailable else { return }
 
-        let lookback: TimeInterval = 24 * 60 * 60
+        // 7 days, not 24h: the weekly trend needs a full week of history.
+        // windowTokens/todayTokens/burn rate all self-filter to their own
+        // narrower slices, so widening this doesn't change their answers.
+        let lookback: TimeInterval = 7 * 24 * 60 * 60
         let since = Date().addingTimeInterval(-lookback)
 
         do {
@@ -58,7 +67,7 @@ final class AppState: ObservableObject {
             snapshot = UsageAggregator.aggregate(
                 provider: provider.kind,
                 samples: samples,
-                budget: budgetStore.windowBudget
+                budget: budgetOverride ?? budgetStore.windowBudget
             )
         } catch {
             // Leave the previous snapshot in place rather than blanking the UI.

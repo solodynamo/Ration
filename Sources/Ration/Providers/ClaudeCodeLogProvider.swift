@@ -60,7 +60,10 @@ final class ClaudeCodeLogProvider: UsageProvider {
     private func parse(file: URL, since: Date) -> [UsageSample] {
         guard let data = try? String(contentsOf: file, encoding: .utf8) else { return [] }
 
-        let projectName = friendlyProjectName(for: file)
+        let directoryFallback = file.deletingLastPathComponent().lastPathComponent
+        // Session files nearly always carry one `cwd` throughout; memoize
+        // per unique value instead of hitting the filesystem on every line.
+        var resolvedNames: [String: String] = [:]
         var results: [UsageSample] = []
 
         data.enumerateLines { line, _ in
@@ -75,29 +78,75 @@ final class ClaudeCodeLogProvider: UsageProvider {
                   let usage = message["usage"] as? [String: Any]
             else { return }
 
+            let cwd = object["cwd"] as? String
+            let projectName: String
+            if let cwd, !cwd.isEmpty {
+                if let cached = resolvedNames[cwd] {
+                    projectName = cached
+                } else {
+                    let resolved = self.friendlyProjectName(cwd: cwd)
+                    resolvedNames[cwd] = resolved
+                    projectName = resolved
+                }
+            } else {
+                projectName = self.legacyDirectoryName(directoryFallback)
+            }
+
+            let cacheCreation = usage["cache_creation"] as? [String: Any]
             let sample = UsageSample(
                 id: UUID(),
                 provider: .claudeCode,
                 timestamp: timestamp,
                 project: projectName,
+                gitBranch: self.normalizedGitBranch(object["gitBranch"] as? String),
                 sessionId: (object["sessionId"] as? String) ?? "unknown",
                 inputTokens: usage["input_tokens"] as? Int ?? 0,
                 outputTokens: usage["output_tokens"] as? Int ?? 0,
                 cacheWriteTokens: usage["cache_creation_input_tokens"] as? Int ?? 0,
-                cacheReadTokens: usage["cache_read_input_tokens"] as? Int ?? 0
+                cacheReadTokens: usage["cache_read_input_tokens"] as? Int ?? 0,
+                model: message["model"] as? String,
+                cacheWrite1hTokens: cacheCreation?["ephemeral_1h_input_tokens"] as? Int ?? 0
             )
             results.append(sample)
         }
         return results
     }
 
-    /// Claude Code names each project directory after the working directory
-    /// path with slashes swapped for dashes; turn that back into a short,
-    /// readable label using the transcript's own `cwd` field when possible,
-    /// falling back to the directory name.
-    private func friendlyProjectName(for file: URL) -> String {
-        let dirName = file.deletingLastPathComponent().lastPathComponent
+    /// Claude Code names each project *directory* after the working
+    /// directory path with slashes swapped for dashes, which is lossy for
+    /// any real folder name that itself contains a hyphen — a repo named
+    /// "my-app" round-trips as "-Users-me-my-app", and reading the name back
+    /// off the last dash-separated segment gives "app", not "my-app". The
+    /// transcript's own `cwd` field carries the real, unambiguous path, so
+    /// prefer that; only fall back to the lossy directory-name split when a
+    /// transcript line has no `cwd` at all.
+    ///
+    /// A `cwd` that isn't a git repo root (e.g. Claude Code launched
+    /// directly in a container folder like ~/Documents/github rather than a
+    /// project inside it) is grouped under "Other" instead of putting a
+    /// misleadingly specific-looking name on what isn't really a project.
+    private func friendlyProjectName(cwd: String) -> String {
+        let cwdURL = URL(fileURLWithPath: cwd)
+        let name = cwdURL.lastPathComponent
+        guard !name.isEmpty else { return legacyDirectoryName(cwdURL.path) }
+        let gitDir = cwdURL.appendingPathComponent(".git").path
+        return FileManager.default.fileExists(atPath: gitDir) ? name : "Other"
+    }
+
+    private func legacyDirectoryName(_ dirName: String) -> String {
         let candidate = dirName.split(separator: "-").last.map(String.init) ?? dirName
         return candidate.isEmpty ? dirName : candidate
+    }
+
+    /// Git reserves the literal name "HEAD" — no real branch can ever be
+    /// called that — so a `gitBranch` of exactly "HEAD" always means the
+    /// repo was in a detached-HEAD state for that turn (e.g. mid-rebase, or
+    /// a checkout of a specific commit), never an actual branch. Passing it
+    /// through unchanged would show "HEAD" in the UI looking like a sibling
+    /// of "main", which is exactly the confusing, wrong-looking thing this
+    /// exists to avoid.
+    private func normalizedGitBranch(_ branch: String?) -> String? {
+        guard let branch, !branch.isEmpty else { return nil }
+        return branch == "HEAD" ? "(detached)" : branch
     }
 }
