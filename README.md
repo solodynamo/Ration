@@ -5,15 +5,20 @@
 A tiny native macOS menu-bar app that shows how hard you're leaning on Claude
 Code, without leaving your desktop or running a terminal command.
 
-### [⬇ Download Ration for Mac](https://github.com/solodynamo/Ration/releases/latest/download/Ration.dmg)
+```bash
+brew install solodynamo/ration/ration
+```
 
-Universal binary — one file, works on Apple Silicon and Intel. That link
-always points at the newest release, so it's safe to bookmark or share as-is.
+That's the easiest path — Homebrew also gets you `brew upgrade ration` for
+free, and the cask strips the Gatekeeper quarantine flag automatically so
+there's no "unidentified developer" prompt to click through.
 
-Open the `.dmg`, drag Ration into Applications, then **right-click → Open**
-the first time you launch it. It's ad-hoc signed rather than notarized (see
-[Signing caveat](#ci--releases) below), so Gatekeeper needs that one-time
-override instead of a plain double-click.
+Prefer not to use Homebrew? **[⬇ Download Ration for Mac](https://github.com/solodynamo/Ration/releases/latest/download/Ration.dmg)**
+— a universal binary that works on Apple Silicon and Intel, and a link that
+always points at the newest release. Open the `.dmg`, drag Ration into
+Applications, then **right-click → Open** the first time (it's ad-hoc
+signed rather than notarized — see [Signing caveat](#ci--releases) below —
+so Gatekeeper needs that one-time override without Homebrew's automatic fix).
 
 This is an original build — architecture and every line of Swift were
 written from scratch for this project. No code was copied from any existing
@@ -113,6 +118,16 @@ swift test                    # unit tests (aggregation, calibration, log parsin
   membership ($99/yr) — not part of this pipeline, and a separate call to
   make later if this needs to feel fully "installed from the App Store"
   smooth for outside users.
+
+## Homebrew tap
+
+The cask lives in [solodynamo/homebrew-ration](https://github.com/solodynamo/homebrew-ration)
+(a separate repo — Homebrew requires tap repos to be named `homebrew-*`).
+`release.yml`'s last step bumps that repo's `Casks/ration.rb` to the new
+version/sha256 on every tagged release, but only once a `HOMEBREW_TAP_TOKEN`
+secret exists on this repo (a fine-grained PAT scoped to just that tap,
+Contents: Read and write) — until then it silently no-ops and the cask
+needs a manual one-line edit after a release.
 
 ## Layout
 
