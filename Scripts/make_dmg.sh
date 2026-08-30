@@ -8,7 +8,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/Ration.app"
 VERSION="${RATION_VERSION:-0.1.0}"
-DMG_PATH="$DIST_DIR/Ration-$VERSION.dmg"
+# Unversioned filename on purpose: GitHub's /releases/latest/download/Ration.dmg
+# alias always resolves to whatever the newest release attached under this
+# exact name, giving us one permanent download link that never changes.
+DMG_PATH="$DIST_DIR/Ration.dmg"
 STAGING_DIR="$DIST_DIR/dmg-staging"
 
 if [ ! -d "$APP_BUNDLE" ]; then

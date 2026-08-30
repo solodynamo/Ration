@@ -1,7 +1,19 @@
 # Ration
 
+![Latest release](https://img.shields.io/github/v/release/solodynamo/Ration)
+
 A tiny native macOS menu-bar app that shows how hard you're leaning on Claude
 Code, without leaving your desktop or running a terminal command.
+
+### [⬇ Download Ration for Mac](https://github.com/solodynamo/Ration/releases/latest/download/Ration.dmg)
+
+Universal binary — one file, works on Apple Silicon and Intel. That link
+always points at the newest release, so it's safe to bookmark or share as-is.
+
+Open the `.dmg`, drag Ration into Applications, then **right-click → Open**
+the first time you launch it. It's ad-hoc signed rather than notarized (see
+[Signing caveat](#ci--releases) below), so Gatekeeper needs that one-time
+override instead of a plain double-click.
 
 This is an original build — architecture and every line of Swift were
 written from scratch for this project. No code was copied from any existing
@@ -79,7 +91,7 @@ natural next step before daily-driving this.
 swift test                    # unit tests (aggregation, calibration, log parsing)
 ./Scripts/build_app.sh        # release build -> dist/Ration.app (ad-hoc signed)
 ./Scripts/smoke_test.sh       # launches the .app, checks it stays up + is Dock-less
-./Scripts/make_dmg.sh         # dist/Ration.app -> dist/Ration-<version>.dmg
+./Scripts/make_dmg.sh         # dist/Ration.app -> dist/Ration.dmg
 ```
 
 ## CI / releases
@@ -87,8 +99,10 @@ swift test                    # unit tests (aggregation, calibration, log parsin
 - `.github/workflows/ci.yml` runs on every push/PR to `main`: build, unit
   tests, then a smoke-test launch of the packaged `.app`.
 - `.github/workflows/release.yml` runs on any `vX.Y.Z` tag push: re-runs
-  tests, builds `Ration.app`, wraps it in a `.dmg`, and publishes both as a
-  GitHub Release.
+  tests, builds a universal (arm64 + x86_64) `Ration.app`, wraps it in a
+  `.dmg` named exactly `Ration.dmg`, and publishes it as a GitHub Release —
+  the fixed filename is what makes the `/releases/latest/download/Ration.dmg`
+  link in the Download section above permanent across every future version.
 - Both run on GitHub-hosted `macos-15` runners, which are free for public
   repositories (no per-minute billing, unlike private repos) — this
   pipeline costs nothing as long as the repo stays public.

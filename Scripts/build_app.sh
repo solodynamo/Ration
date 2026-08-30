@@ -8,13 +8,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 APP_NAME="Ration"
-BUILD_DIR="$ROOT_DIR/.build/release"
+# Multi-arch output lands in .build/apple/Products/Release, not .build/release.
+BUILD_DIR="$ROOT_DIR/.build/apple/Products/Release"
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 VERSION="${RATION_VERSION:-0.1.0}"
 
-echo "==> Building release binary"
-swift build -c release
+echo "==> Building universal (arm64 + x86_64) release binary"
+swift build -c release --arch arm64 --arch x86_64
 
 echo "==> Assembling $APP_NAME.app"
 rm -rf "$APP_BUNDLE"
