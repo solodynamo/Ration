@@ -7,6 +7,19 @@ struct SettingsView: View {
 
     private let budgetOptionsM: [Double] = [0.5, 1, 2, 3, 5, 8]
 
+    private var budgetBinding: Binding<Int> {
+        Binding(
+            get: { budgetStore.windowBudget },
+            set: { budgetStore.setUserBudget($0) }
+        )
+    }
+
+    private var footnote: String {
+        budgetStore.hasCustomized
+            ? "This is a personal pacing target, not Anthropic's actual plan limit — that number isn't published anywhere Ration can read."
+            : "Auto-set from your busiest recent 5-hour stretch. Pick a value here anytime to take over — it won't be recalculated after that."
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Settings")
@@ -16,7 +29,7 @@ struct SettingsView: View {
                 Text("5-hour budget")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
-                Picker("", selection: $budgetStore.windowBudget) {
+                Picker("", selection: budgetBinding) {
                     ForEach(budgetOptionsM, id: \.self) { millions in
                         Text("\(millions.formatted()) M tokens")
                             .tag(Int(millions * 1_000_000))
@@ -24,7 +37,7 @@ struct SettingsView: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
-                Text("This is a personal pacing target, not Anthropic's actual plan limit — that number isn't published anywhere Ration can read.")
+                Text(footnote)
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }

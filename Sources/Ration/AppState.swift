@@ -27,10 +27,23 @@ final class AppState: ObservableObject {
 
     func start() {
         refresh()
+        calibrateBudgetIfNeeded()
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }
+    }
+
+    /// Runs once ever, on first launch: sets the starting budget from the
+    /// user's own history so they never have to type a number in.
+    private func calibrateBudgetIfNeeded() {
+        guard providerAvailable, !budgetStore.isCalibrated, !budgetStore.hasCustomized else { return }
+        let lookback: TimeInterval = 14 * 24 * 60 * 60
+        let since = Date().addingTimeInterval(-lookback)
+        guard let samples = try? provider.fetchSamples(since: since),
+              let suggestion = BudgetCalibrator.suggestBudget(from: samples)
+        else { return }
+        budgetStore.applyCalibratedDefault(suggestion)
     }
 
     func refresh() {

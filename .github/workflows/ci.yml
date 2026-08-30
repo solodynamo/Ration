@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Build (debug)
+        run: swift build
+
+      - name: Unit tests
+        run: swift test
+
+      - name: Build .app for smoke test
+        run: ./Scripts/build_app.sh
+
+      - name: Smoke test (launch + verify no crash)
+        run: ./Scripts/smoke_test.sh

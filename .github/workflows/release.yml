@@ -1,0 +1,51 @@
+name: Release
+
+# Triggered by pushing a tag like v0.1.0. Runs the full test suite again
+# (never release on an untested build), packages Ration.app, wraps it in a
+# .dmg, and publishes both as a GitHub Release.
+#
+# Note: the .dmg is only ad-hoc signed (see Scripts/build_app.sh). Without a
+# paid Apple Developer account for real signing + notarization, first
+# launch on another Mac will show an "unidentified developer" Gatekeeper
+# prompt — right-click > Open gets past it. That's a deliberate trade to
+# keep this pipeline entirely on GitHub's free tier.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unit tests
+        run: swift test
+
+      - name: Derive version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Ration.app
+        env:
+          RATION_VERSION: ${{ steps.version.outputs.version }}
+        run: ./Scripts/build_app.sh
+
+      - name: Smoke test
+        run: ./Scripts/smoke_test.sh
+
+      - name: Build .dmg
+        env:
+          RATION_VERSION: ${{ steps.version.outputs.version }}
+        run: ./Scripts/make_dmg.sh
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Ration-${{ steps.version.outputs.version }}.dmg
+          generate_release_notes: true

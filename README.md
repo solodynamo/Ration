@@ -20,12 +20,21 @@ usage-monitor app.
   That means zero auth flow, nothing that can leak a token, and nothing that
   depends on an undocumented vendor API staying stable.
 
+## Onboarding
+
+Zero setup. On first launch Ration scans your existing local history, finds
+your busiest 5-hour stretch over the last 14 days, pads it by 20%, and uses
+that as your starting budget — nothing to type or paste in. A dismissible
+banner in the popover says so the first time. Change it anytime from
+Settings with a one-tap picker (no text field); doing so takes over
+permanently and Ration stops recalibrating it.
+
 ## Honest scope of what it shows
 
-- **Ring = usage against a budget you set**, not Anthropic's actual plan
-  ceiling. That real number isn't published anywhere Ration (or anything
-  else running locally) can read. The ring is a personal pacing target —
-  set it in Settings, default is 2M tokens per rolling 5-hour window.
+- **Ring = usage against a budget**, not Anthropic's actual plan ceiling.
+  That real number isn't published anywhere Ration (or anything else
+  running locally) can read. The ring is a pacing target, auto-calibrated
+  from your own history (see Onboarding) and adjustable in Settings.
 - **"This 5h window"** mirrors the shape of Claude's actual rate-limit
   windows, but the *contents* are only what Ration can see in your local
   logs — reliable for solo usage, not a source of truth for team billing.
@@ -64,6 +73,33 @@ This is a Swift Package executable, not a code-signed `.app` bundle yet, so
 that for unsigned binaries) — packaging into a proper signed `.app` is the
 natural next step before daily-driving this.
 
+## Testing & packaging
+
+```bash
+swift test                    # unit tests (aggregation, calibration, log parsing)
+./Scripts/build_app.sh        # release build -> dist/Ration.app (ad-hoc signed)
+./Scripts/smoke_test.sh       # launches the .app, checks it stays up + is Dock-less
+./Scripts/make_dmg.sh         # dist/Ration.app -> dist/Ration-<version>.dmg
+```
+
+## CI / releases
+
+- `.github/workflows/ci.yml` runs on every push/PR to `main`: build, unit
+  tests, then a smoke-test launch of the packaged `.app`.
+- `.github/workflows/release.yml` runs on any `vX.Y.Z` tag push: re-runs
+  tests, builds `Ration.app`, wraps it in a `.dmg`, and publishes both as a
+  GitHub Release.
+- Both run on GitHub-hosted `macos-15` runners, which are free for public
+  repositories (no per-minute billing, unlike private repos) — this
+  pipeline costs nothing as long as the repo stays public.
+- **Signing caveat:** the `.dmg` is only ad-hoc signed. That's enough to
+  launch locally but not enough to skip Gatekeeper's "unidentified
+  developer" prompt on someone else's Mac (right-click > Open works around
+  it). Real signing + notarization needs a paid Apple Developer Program
+  membership ($99/yr) — not part of this pipeline, and a separate call to
+  make later if this needs to feel fully "installed from the App Store"
+  smooth for outside users.
+
 ## Layout
 
 ```
@@ -73,13 +109,17 @@ Sources/Ration/
   AppState.swift             refresh loop, glues everything together
   Models/                    UsageSample, UsageSnapshot
   Providers/                 UsageProvider protocol + ClaudeCodeLogProvider
-  Services/                  aggregation, budget persistence, login item
+  Services/                  aggregation, budget persistence + calibration, login item
   Views/                     RingView, popover, settings, project rows
+Tests/RationTests/          unit tests for the above
+Scripts/                    build_app.sh, make_dmg.sh, smoke_test.sh
+.github/workflows/          ci.yml (push/PR), release.yml (tag push)
 ```
 
 ## Roadmap ideas (not built)
 
-- Package as a signed `.app` with a proper icon and DMG.
+- Real code signing + notarization (needs a paid Apple Developer account).
+- A proper app icon.
 - Second real provider once a safe local data source turns up.
 - Historical view (today vs. yesterday, weekly trend).
 - Optional `ration status --json` companion for scripting/status-bar tools.

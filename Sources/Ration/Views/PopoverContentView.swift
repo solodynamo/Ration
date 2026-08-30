@@ -40,6 +40,12 @@ struct PopoverContentView: View {
                 .foregroundStyle(.secondary)
             }
 
+            if appState.budgetStore.isCalibrated,
+               !appState.budgetStore.hasCustomized,
+               !appState.budgetStore.calibrationBannerDismissed {
+                calibrationBanner
+            }
+
             HStack(spacing: 16) {
                 ZStack {
                     RingView(fraction: snapshot.windowFraction, lineWidth: 7)
@@ -102,6 +108,28 @@ struct PopoverContentView: View {
             .foregroundStyle(.secondary)
         }
         .padding(16)
+    }
+
+    private var calibrationBanner: some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "wand.and.stars")
+                .font(.system(size: 10))
+            Text("Budget auto-set from your usage. Adjust anytime in Settings.")
+                .font(.system(size: 10))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            Button {
+                appState.budgetStore.calibrationBannerDismissed = true
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9))
+            }
+            .buttonStyle(.plain)
+        }
+        .foregroundStyle(.secondary)
+        .padding(8)
+        .background(Color.secondary.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private var emptyState: some View {
